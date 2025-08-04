@@ -1,187 +1,123 @@
 #!/bin/bash
 set -e
 
+echo "🚀 Pi 5 File Server Setup Starting..."
+echo "========================================"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Pi 5 File Server Setup Starting...${NC}"
-echo ""
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
 
-# Check if running on Raspberry Pi
-if ! grep -q "Raspberry Pi" /proc/cpuinfo 2>/dev/null; then
-    echo -e "${YELLOW}⚠️  Warning: This doesn't appear to be a Raspberry Pi${NC}"
-    read -p "Continue anyway? (y/N): " -n 1 -r
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+    print_error "Please run as regular user, not root!"
+    exit 1
+fi
+
+print_status "Updating system packages..."
+sudo apt update && sudo apt upgrade -y
+
+print_status "Installing required packages..."
+sudo apt install -y python3 python3-pip python3-venv git curl htop
+
+print_status "Checking for external SSD..."
+if ! df -h | grep -q "/mnt/storage"; then
+    print_warning "External SSD not mounted at /mnt/storage"
+    echo "Please run: ./scripts/mount_ssd.sh first"
+    read -p "Continue anyway? (y/n): " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
     fi
-fi
-
-# Check if SSD is mounted
-if ! mount | grep -q "/mnt/storage"; then
-    echo -e "${RED}❌ Error: SSD not mounted at /mnt/storage${NC}"
-    echo "Please format and mount your SSD first:"
-    echo "  sudo mkdir -p /mnt/storage"
-    echo "  sudo mount /dev/sda1 /mnt/storage  # Replace sda1 with your SSD"
-    echo "  sudo chown \$USER:\$USER /mnt/storage"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ SSD detected at /mnt/storage${NC}"
-
-# Update system
-echo -e "${BLUE}📦 Updating system packages...${NC}"
-sudo apt update && sudo apt upgrade -y
-
-# Install dependencies
-echo -e "${BLUE}📦 Installing dependencies...${NC}"
-sudo apt install -y python3-venv python3-pip git curl wget
-
-# Create services directory
-echo -e "${BLUE}📁 Setting up services directory...${NC}"
-mkdir -p ~/services
-cd ~/services
-
-# Create Python virtual environment
-echo -e "${BLUE}🐍 Creating Python virtual environment...${NC}"
-python3 -m venv file_service_env
-
-# Install Python packages
-echo -e "${BLUE}📦 Installing Python packages...${NC}"
-source file_service_env/bin/activate
-
-# Create requirements.txt if it doesn't exist
-cat > requirements.txt << 'EOF'
-Flask==2.3.3
-requests==2.31.0
-Werkzeug==2.3.7
-EOF
-
-pip install -r requirements.txt
-deactivate
-
-# Copy service file from repo
-if [ -f "./services/file_service.py" ]; then
-    echo -e "${BLUE}📄 Copying service files...${NC}"
-    cp ./services/file_service.py .
 else
-    echo -e "${RED}❌ Error: services/file_service.py not found in repo${NC}"
-    echo "Make sure you have the complete repository with all files"
-    exit 1
+    print_status "SSD found at /mnt/storage"
 fi
 
-# Create systemd service file
-echo -e "${BLUE}⚙️  Installing systemd service...${NC}"
-cat > /tmp/file-service.service << EOF
-[Unit]
-Description=Personal File Upload Service
-After=network-online.target
-Wants=network-online.target
+print_status "Setting up file service..."
+./install_service.sh
 
-[Service]
-Type=simple
-User=$USER
-Group=$USER
-WorkingDirectory=$HOME/services
-ExecStart=$HOME/services/file_service_env/bin/python file_service.py
-Restart=always
-RestartSec=15
-Environment=PATH=$HOME/services/file_service_env/bin:/usr/local/bin:/usr/bin:/bin
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo cp /tmp/file-service.service /etc/systemd/system/
-rm /tmp/file-service.service
-
-# Create uploads directory
-echo -e "${BLUE}📁 Creating uploads directory...${NC}"
-mkdir -p /mnt/storage/uploads
-sudo chown $USER:$USER /mnt/storage/uploads
-
-# Enable and start service
-echo -e "${BLUE}🔧 Enabling and starting service...${NC}"
-sudo systemctl daemon-reload
-sudo systemctl enable file-service
-sudo systemctl start file-service
-
-# Wait a moment for service to start
-sleep 3
-
-# Check service status
-if sudo systemctl is-active --quiet file-service; then
-    echo -e "${GREEN}✅ File service is running!${NC}"
-else
-    echo -e "${RED}❌ Service failed to start. Check logs:${NC}"
-    echo "sudo journalctl -u file-service -n 20"
-    exit 1
-fi
-
-# Get Pi IP address
-PI_IP=$(hostname -I | awk '{print $1}')
-
-# Install cloudflared if not present
+print_status "Checking Cloudflare tunnel..."
 if ! command -v cloudflared &> /dev/null; then
-    echo -e "${BLUE}☁️  Installing Cloudflare Tunnel...${NC}"
+    print_warning "Cloudflare tunnel not installed"
+    echo "Installing cloudflared..."
     
-    # Detect architecture
-    ARCH=$(uname -m)
-    if [[ "$ARCH" == "aarch64" ]]; then
-        CLOUDFLARED_ARCH="arm64"
-    elif [[ "$ARCH" == "armv7l" ]]; then
-        CLOUDFLARED_ARCH="arm"
-    else
-        CLOUDFLARED_ARCH="amd64"
-    fi
+    # Download and install cloudflared
+    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+    sudo dpkg -i cloudflared-linux-arm64.deb
+    rm cloudflared-linux-arm64.deb
     
-    curl -L --output cloudflared.deb "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CLOUDFLARED_ARCH}.deb"
-    sudo dpkg -i cloudflared.deb
-    rm cloudflared.deb
-    
-    echo -e "${GREEN}✅ Cloudflared installed${NC}"
+    print_status "Cloudflared installed"
 else
-    echo -e "${GREEN}✅ Cloudflared already installed${NC}"
+    print_status "Cloudflared already installed"
 fi
 
-# Final status check
-echo ""
-echo -e "${GREEN}🎉 Setup Complete!${NC}"
-echo ""
-echo -e "${BLUE}📊 Service Status:${NC}"
-sudo systemctl status file-service --no-pager -l
+print_status "Setting up Cloudflare config directory..."
+mkdir -p ~/.cloudflared
+
+if [ ! -f ~/.cloudflared/config.yml ]; then
+    print_status "Copying Cloudflare config template..."
+    cp config/cloudflare.yml ~/.cloudflared/config.yml
+    print_warning "IMPORTANT: Edit ~/.cloudflared/config.yml with your tunnel details!"
+else
+    print_status "Cloudflare config already exists"
+fi
+
+print_status "Setting up systemd services..."
+
+# Copy service file template
+sudo cp config/file-service.service /etc/systemd/system/
+sudo sed -i "s/YOUR_USERNAME/$(whoami)/g" /etc/systemd/system/file-service.service
+sudo sed -i "s|/home/YOUR_USERNAME|$HOME|g" /etc/systemd/system/file-service.service
+
+# Reload systemd
+sudo systemctl daemon-reload
+
+print_status "Enabling services for auto-start..."
+sudo systemctl enable file-service
+
+# Check if cloudflared service exists
+if sudo systemctl list-unit-files | grep -q cloudflared; then
+    sudo systemctl enable cloudflared
+    print_status "Cloudflared service enabled"
+else
+    print_warning "Cloudflared service not found - you may need to configure it manually"
+fi
+
+print_status "Creating storage directories..."
+mkdir -p /mnt/storage/uploads
+mkdir -p /mnt/storage/data
+mkdir -p /mnt/storage/media
+mkdir -p /mnt/storage/backups
+
+print_status "Setting permissions..."
+sudo chown -R $(whoami):$(whoami) /mnt/storage 2>/dev/null || print_warning "Could not set storage permissions (SSD may not be mounted)"
 
 echo ""
-echo -e "${BLUE}🌐 Access Information:${NC}"
-echo "  Local URL: http://$PI_IP:5001"
-echo "  Upload Directory: /mnt/storage/uploads"
+echo "🎉 Setup Complete!"
+echo "=================="
 echo ""
-
-# Check storage space
-STORAGE_INFO=$(df -h /mnt/storage | tail -1)
-echo -e "${BLUE}💾 Storage Info:${NC}"
-echo "  $STORAGE_INFO"
+echo "Next steps:"
+echo "1. Edit ~/.cloudflared/config.yml with your tunnel details"
+echo "2. Add DNS routes: cloudflared tunnel route dns YOUR_TUNNEL_ID files.yourdomain.com"
+echo "3. Run: ./start_services.sh"
 echo ""
-
-echo -e "${BLUE}🔧 Next Steps:${NC}"
-echo "1. Configure your Cloudflare tunnel:"
-echo "   ./configure-tunnel.sh YOUR_TUNNEL_ID files.salamander.blue"
+echo "Configuration files:"
+echo "- File service: ~/services/file_service.py"  
+echo "- Cloudflare config: ~/.cloudflared/config.yml"
+echo "- Service config: /etc/systemd/system/file-service.service"
 echo ""
-echo "2. Or manually add to Cloudflare dashboard:"
-echo "   - Subdomain: files"
-echo "   - Domain: salamander.blue" 
-echo "   - Service: http://localhost:5001"
-echo ""
-
-echo -e "${BLUE}📝 Useful Commands:${NC}"
-echo "  Check service: sudo systemctl status file-service"
-echo "  View logs: sudo journalctl -u file-service -f"
-echo "  Restart: sudo systemctl restart file-service"
-echo "  Storage usage: df -h /mnt/storage"
-echo ""
-
-echo -e "${GREEN}✨ Your Pi file server is ready!${NC}"
+echo "Run './scripts/health_check.sh' to verify everything is working!"
