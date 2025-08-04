@@ -48,10 +48,8 @@ pi-file-server/
 │   ├── file_service.py      # Main Python service
 │   └── requirements.txt     # Python dependencies
 ├── config/
-│   ├── file-service.service # Systemd service file
-│   └── fstab.example       # SSD auto-mount example
+│   └── file-service.service # Systemd service file
 └── docs/
-    ├── manual-setup.md      # Step-by-step manual instructions
     └── troubleshooting.md   # Common issues and fixes
 ```
 
