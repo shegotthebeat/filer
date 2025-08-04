@@ -1,0 +1,11 @@
+# Python dependencies for Pi 5 File Server
+# Compatible with Python 3.11+ on Raspberry Pi OS
+
+Flask==2.3.3
+requests==2.31.0
+Werkzeug==2.3.7
+
+# Optional: Add these for enhanced functionality
+# gunicorn==21.2.0        # Production WSGI server
+# python-magic==0.4.27    # File type detection
+# Pillow==10.0.1          # Image processing (if needed)
