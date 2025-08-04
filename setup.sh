@@ -83,19 +83,32 @@ sudo cp config/file-service.service /etc/systemd/system/
 sudo sed -i "s/YOUR_USERNAME/$(whoami)/g" /etc/systemd/system/file-service.service
 sudo sed -i "s|/home/YOUR_USERNAME|$HOME|g" /etc/systemd/system/file-service.service
 
+# Create cloudflared systemd service
+print_status "Creating cloudflared systemd service..."
+sudo tee /etc/systemd/system/cloudflared.service > /dev/null << EOF
+[Unit]
+Description=Cloudflare Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$(whoami)
+ExecStart=/usr/local/bin/cloudflared tunnel run
+WorkingDirectory=$HOME/.cloudflared
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # Reload systemd
 sudo systemctl daemon-reload
 
 print_status "Enabling services for auto-start..."
 sudo systemctl enable file-service
-
-# Check if cloudflared service exists
-if sudo systemctl list-unit-files | grep -q cloudflared; then
-    sudo systemctl enable cloudflared
-    print_status "Cloudflared service enabled"
-else
-    print_warning "Cloudflared service not found - you may need to configure it manually"
-fi
+sudo systemctl enable cloudflared
 
 print_status "Creating storage directories..."
 mkdir -p /mnt/storage/uploads
