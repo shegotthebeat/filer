@@ -30,7 +30,7 @@ home-filer/
 # 2. Connect your pre-formatted ext4 SSD
 # 3. Clone your repository:
 
-git clone https://github.com/yourusername/pi-file-server.git
+git clone https://github.com/yourusername/home-filer.git
 cd pi-file-server
 
 # 4. Make scripts executable
