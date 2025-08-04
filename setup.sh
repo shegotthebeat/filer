@@ -65,24 +65,13 @@ pip install -r requirements.txt
 deactivate
 
 # Copy service file from repo
-if [ -f "../pi-file-server/services/file_service.py" ]; then
+if [ -f "./services/file_service.py" ]; then
     echo -e "${BLUE}📄 Copying service files...${NC}"
-    cp ../pi-file-server/services/file_service.py .
+    cp ./services/file_service.py .
 else
-    echo -e "${YELLOW}⚠️  Service file not found in repo, creating from template...${NC}"
-    # Create a basic service file if repo file doesn't exist
-    cat > file_service.py << 'EOF'
-# This is a placeholder - replace with your actual file_service.py
-from flask import Flask
-app = Flask(__name__)
-
-@app.route('/')
-def hello():
-    return '<h1>File Service Placeholder</h1><p>Replace this with your actual file_service.py</p>'
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
-EOF
+    echo -e "${RED}❌ Error: services/file_service.py not found in repo${NC}"
+    echo "Make sure you have the complete repository with all files"
+    exit 1
 fi
 
 # Create systemd service file
