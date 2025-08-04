@@ -1,0 +1,17 @@
+[Unit]
+Description=Personal File Upload Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$HOME/services
+ExecStart=$HOME/services/file_service_env/bin/python file_service.py
+Restart=always
+RestartSec=15
+Environment=PATH=$HOME/services/file_service_env/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
