@@ -5,13 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=YOUR_USERNAME
-Group=YOUR_USERNAME
-WorkingDirectory=/home/YOUR_USERNAME/services
-ExecStart=/home/YOUR_USERNAME/services/file_service_env/bin/python /home/YOUR_USERNAME/services/file_service.py
+User=hookworm
+Group=hookworm
+WorkingDirectory=/home/hookworm/services
+ExecStart=/home/hookworm/services/file_service_env/bin/python /home/hookworm/services/file_service.py
 Restart=always
 RestartSec=15
-Environment=PATH=/home/YOUR_USERNAME/services/file_service_env/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/home/hookworm/services/file_service_env/bin:/usr/local/bin:/usr/bin:/bin
 
 # Logging
 StandardOutput=journal
