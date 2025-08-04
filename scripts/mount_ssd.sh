@@ -88,6 +88,11 @@ if grep -q "$uuid" /etc/fstab 2>/dev/null; then
 else
     print_status "Adding to /etc/fstab for auto-mount..."
     sudo cp /etc/fstab /etc/fstab.backup
+    
+    # Remove any existing entries for this mount point
+    sudo sed -i '/\/mnt\/storage/d' /etc/fstab
+    
+    # Add correct entry with UUID= prefix
     echo "UUID=$uuid /mnt/storage ext4 defaults,noatime 0 2" | sudo tee -a /etc/fstab > /dev/null
 fi
 
