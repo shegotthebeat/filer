@@ -50,6 +50,7 @@ pi-file-server/
 ├── config/
 │   └── file-service.service # Systemd service file
 └── docs/
+│   ├── quick-start.sh
     └── troubleshooting.md   # Common issues and fixes
 ```
 
