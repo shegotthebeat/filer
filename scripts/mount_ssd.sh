@@ -12,7 +12,7 @@ fi
 echo "Found SSD partition: $SSD_PARTITION"
 
 # Get the correct UUID
-UUID=$(sudo blkid /dev/$SSD_PARTITION | grep -o 'UUID="[^"]*"' | cut -d'"' -f2)
+UUID=$(sudo lsblk -no UUID "/dev/$SSD_PARTITION")
 
 if [ -z "$UUID" ]; then
     echo "❌ Could not get UUID for /dev/$SSD_PARTITION"
