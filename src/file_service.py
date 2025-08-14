@@ -224,6 +224,15 @@ UPLOAD_TEMPLATE = '''
     <div class="container">
         <div class="sidebar">
             <h1>File Hub</h1>
+                        <div class="nav-section">
+                <h3>Links</h3>
+                <div class="nav-item active">
+                    <a href="https://json.salamander.blue">JSON to CSV</a>
+                </div>
+                <div class="nav-item active">
+                    <a href="https://files.salamander.blue">Files</a>
+                </div>
+            </div>
             <div class="nav-item">
                 <a href="/files">View Files</a>
             </div>
